@@ -42,5 +42,8 @@ steps:
 substitutions:
   _ANTHROPIC_API_KEY: "YOUR_ANTHROPIC_API_KEY"
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 images:
   - "gcr.io/$PROJECT_ID/millican-reel-agent:$COMMIT_SHA"
