@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
 
-const API = ''
+const API = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  ? window.location.origin
+  : ''
 
 const S = {
   wrap: { maxWidth: 780, margin: '0 auto', padding: '2rem 1.5rem', fontFamily: "'Georgia', serif" },
@@ -56,11 +58,18 @@ export default function App() {
     const fd = new FormData()
     files.forEach(f => fd.append('files', f))
     try {
-      const res = await fetch(`${API}/api/upload`, { method: 'POST', body: fd })
+      const origin = window.location.origin
+      const res = await fetch(`${origin}/api/upload`, { method: 'POST', body: fd })
       if (!res.ok) throw new Error((await res.json()).detail || res.statusText)
       const data = await res.json()
-      setClips(data.clips)
-      setUploadMsg(`${data.clips.length} clip${data.clips.length > 1 ? 's' : ''} ready`)
+      // Append new clips to existing ones instead of replacing
+      setClips(prev => {
+        const existingNames = new Set(prev.map(c => c.name))
+        const newClips = data.clips.filter(c => !existingNames.has(c.name))
+        const merged = [...prev, ...newClips]
+        setUploadMsg(`${merged.length} clip${merged.length > 1 ? 's' : ''} ready`)
+        return merged
+      })
     } catch (e) {
       setUploadMsg(`Upload error: ${e.message}`)
     }
@@ -94,7 +103,8 @@ export default function App() {
     if (!brandPrompt.trim()) { alert('Add a brand voice prompt first.'); return }
     setGenerating(true)
     try {
-      const res = await fetch(`${API}/api/generate`, {
+      const origin = window.location.origin
+      const res = await fetch(`${origin}/api/generate`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ brand_prompt: brandPrompt, clips }),
       })
@@ -113,7 +123,8 @@ export default function App() {
     setRenderJob(jobId)
     setRenderStatus({ status: 'queued', progress: 0, message: 'Starting…' })
     try {
-      const res = await fetch(`${API}/api/render`, {
+      const origin = window.location.origin
+      const res = await fetch(`${origin}/api/render`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ clips, hook: generated.hook, captions: generated.captions, cta: generated.cta, job_id: jobId }),
       })
@@ -123,9 +134,10 @@ export default function App() {
   }
 
   async function pollStatus(jobId) {
+    const origin = window.location.origin
     const poll = async () => {
       try {
-        const data = await (await fetch(`${API}/api/render/${jobId}/status`)).json()
+        const data = await (await fetch(`${origin}/api/render/${jobId}/status`)).json()
         setRenderStatus(data)
         if (data.status === 'done' || data.status === 'error') setRendering(false)
         else setTimeout(poll, 2500)
