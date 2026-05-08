@@ -92,7 +92,10 @@ async def generate_content(req: GenerateRequest):
                      "content-type": "application/json"},
             json={"model": "claude-sonnet-4-20250514", "max_tokens": 1000,
                   "system": system, "messages": [{"role": "user", "content": user}]})
-    raw = "".join(b.get("text","") for b in resp.json().get("content",[])).replace("```json","").replace("```","").strip()
+    resp_data = resp.json()
+    if "error" in resp_data:
+        raise HTTPException(500, f"Anthropic API error: {resp_data['error']}")
+    raw = "".join(b.get("text","") for b in resp_data.get("content",[])).replace("```json","").replace("```","").strip()
     try:
         return json.loads(raw)
     except Exception:
